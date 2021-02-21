@@ -144,9 +144,8 @@ class Space():
                                 color='black', linestyle='dashed', linewidth='0.5', markersize=obj.markersize
                             )
                         else:
-                            elems += ax.plot(orbit[:i, 0], orbit[:i, 1], color='black', linestyle='dashed', linewidth='0.5')
                             elems += ax.plot(
-                                orbit[i - orbit_length:i, 0] - c_orbit[i - orbit_length:i, 0], orbit[i - orbit_length:i, 1] - c_orbit[i - orbit_length:i, 1],
+                                orbit[:i, 0] - c_orbit[:i, 0], orbit[:i, 1] - c_orbit[:i, 1],
                                 color='black', linestyle='dashed', linewidth='0.5', markersize=obj.markersize
                             )
 
@@ -165,6 +164,7 @@ class Planet():
 
     def initial_pos(self, pos):
         self.x = pos
+        self.orbit = []
         self.orbit.append(copy.copy(self.x))
 
     def initial_vel(self, vel):
@@ -177,10 +177,12 @@ class Planet():
 
 
 class Spacecraft:
-    def __init__(self, mass, color='green', line='-', size='1'):
+    def __init__(self, mass, color='green', linestyle='solid', linewidth='1', markersize='1'):
         self.mass = mass
         self.color = color
-        self.line = line
+        self.linestyle = linestyle
+        self.linewidth = linewidth
+        self.markersize = markersize
         self.fixed = False
         self.x = None
         self.v = None
@@ -188,6 +190,7 @@ class Spacecraft:
 
     def initial_pos(self, pos):
         self.x = pos
+        self.orbit = []
         self.orbit.append(copy.copy(self.x))
 
     def initial_vel(self, vel):
