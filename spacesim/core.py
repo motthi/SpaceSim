@@ -93,7 +93,7 @@ class Space():
             f += self.G * other.mass * (other.x - x) / (r**3)
         return f
 
-    def plotOrbit(self, center_obj=None, ax_lim=(1e9, 1e9)):
+    def plotOrbit(self, center_obj=None, ax_lim=(1e9, 1e9), loc=None, bbox_to_anchor=None, borderaxespad=1):
         fig = plt.figure()
         ax = fig.add_subplot(111)
         ax.set_aspect('equal', adjustable='box')
@@ -104,26 +104,24 @@ class Space():
             for obj in self.objects:
                 orbit = np.array(obj.orbit)
                 if(obj.fixed is True):
-                    ax.plot(obj.x[0], obj.x[1], color=obj.color, marker='o', markersize=obj.markersize)
+                    ax.scatter(obj.x[0], obj.x[1], c=obj.color, marker='.', s=int(obj.markersize), label=obj.name)
                 else:
-                    ax.plot(orbit[:, 0], orbit[:, 1], color=obj.color, linestyle=obj.linestyle, linewidth=obj.linewidth)
+                    ax.plot(orbit[:, 0], orbit[:, 1], color=obj.color, linestyle=obj.linestyle, linewidth=obj.linewidth, label=obj.name)
         else:
             for obj in self.objects:
                 if obj is center_obj:
-                    ax.plot(0, 0, color=obj.color, marker='o', markersize=obj.markersize)
+                    ax.scatter(0, 0, c=obj.color, marker='.', s=int(obj.markersize), label=obj.name)
                 else:
+                    c_orbit = np.array(center_obj.orbit)
                     if(obj.fixed is True):
-                        c_orbit = np.array(center_obj.orbit)
-                        ax.plot(-c_orbit[:, 0], c_orbit[:, 1], color=obj.color, linestyle=obj.linestyle, linewidth=obj.linewidth)
+                        ax.plot(-c_orbit[:, 0], c_orbit[:, 1], color=obj.color, linestyle=obj.linestyle, linewidth=obj.linewidth, label=obj.name)
                     else:
                         orbit = np.array(obj.orbit)
-                        c_orbit = np.array(center_obj.orbit)
-                        ax.plot(orbit[:, 0] - c_orbit[:, 0], orbit[:, 1] - c_orbit[:, 1], color=obj.color, linestyle=obj.linestyle, linewidth=obj.linewidth)
-        # plt.legend()
-        ax.set_aspect('equal')
+                        ax.plot(orbit[:, 0] - c_orbit[:, 0], orbit[:, 1] - c_orbit[:, 1], color=obj.color, linestyle=obj.linestyle, linewidth=obj.linewidth, label=obj.name)
+        ax.legend(loc=loc, bbox_to_anchor=bbox_to_anchor, borderaxespad=borderaxespad)
         plt.show()
 
-    def animateOrbit(self, interval=100, frames=100, center_obj=None, ax_lim=(1e9, 1e9), orbit_length=float('inf'), time='day'):
+    def animateOrbit(self, interval=100, frames=100, center_obj=None, ax_lim=(1e9, 1e9), orbit_length=float('inf'), time='day', loc=None, bbox_to_anchor=None, borderaxespad=1):
         fig = plt.figure()
         ax = fig.add_subplot(111)
         ax.set_aspect('equal')
@@ -131,13 +129,13 @@ class Space():
         ax.set_ylim(-ax_lim[1], ax_lim[1])
         elems = []
         self.ani = animation.FuncAnimation(
-            fig, self.animateOrbitFrame, fargs=(elems, ax, center_obj, orbit_length, time),
+            fig, self.animateOrbitFrame, fargs=(elems, ax, center_obj, orbit_length, time, loc, bbox_to_anchor, borderaxespad),
             interval=interval, frames=frames,
             repeat=False
         )
         plt.show()
 
-    def animateOrbitFrame(self, i, elems, ax, center_obj, orbit_length, time):
+    def animateOrbitFrame(self, i, elems, ax, center_obj, orbit_length, time, loc, bbox_to_anchor, borderaxespad):
         while elems:
             elems.pop().remove()
         time_str = i * self.step * self.step_dur
@@ -161,49 +159,45 @@ class Space():
         if(center_obj is None):
             for obj in self.objects:
                 if(obj.fixed is True):
-                    elems += ax.plot(obj.x[0], obj.x[1], color=obj.color, marker='o', markersize=obj.markersize)
+                    elems.append(ax.scatter(obj.x[0], obj.x[1], c=obj.color, marker='.', s=int(obj.markersize), label=obj.name))
                 else:
                     orbit = np.array(obj.orbit)
-                    elems += ax.plot(orbit[i, 0], orbit[i, 1], color=obj.color, marker='o', markersize=obj.markersize)
-                    if(i > orbit_length):
-                        elems += ax.plot(
-                            orbit[i - orbit_length:i, 0], orbit[i - orbit_length:i, 1],
-                            color='black', linestyle='dashed', linewidth='0.5', markersize=obj.markersize
-                        )
-                    else:
-                        elems += ax.plot(orbit[:i, 0], orbit[:i, 1], color='black', linestyle='dashed', linewidth='0.5')
+                    elems.append(ax.scatter(orbit[i, 0], orbit[i, 1], c=obj.color, marker='.', s=int(obj.markersize), label=obj.name))
+                    elems += ax.plot(
+                        orbit[max(i - orbit_length, 0):i, 0], orbit[max(i - orbit_length, 0):i, 1],
+                        color='black', linestyle='dashed', linewidth='0.5', markersize=obj.markersize
+                    )
         else:
             for obj in self.objects:
                 if obj is center_obj:
-                    elems += ax.plot(0, 0, color=obj.color, marker='o', markersize=obj.markersize)
+                    elems.append(ax.scatter(0, 0, color=obj.color, marker='.', s=int(obj.markersize), label=obj.name))
                 else:
+                    c_orbit = np.array(center_obj.orbit)
                     if(obj.fixed is True):
-                        pass
-                        # elems += ax.plot(obj.x[0] - center_obj.x[:, 0], obj.x[1] - center_obj[:, 1], color=obj.color, marker='o')
+                        elems.append(ax.scatter(obj.x[0] - c_orbit[i, 0], obj.x[1] - c_orbit[i, 1], c=obj.color, marker='.', s=int(obj.markersize), label=obj.name))
+                        elems += ax.plot(
+                            obj.x[0] - c_orbit[max(i - orbit_length, 0):i, 0], obj.x[1] - c_orbit[max(i - orbit_length, 0):i, 1],
+                            color='black', linestyle='dashed', linewidth='0.5', markersize=obj.markersize
+                        )
                     else:
                         orbit = np.array(obj.orbit)
-                        c_orbit = np.array(center_obj.orbit)
-                        elems += ax.plot(orbit[i, 0] - c_orbit[i, 0], orbit[i, 1] - c_orbit[i, 1], color=obj.color, marker='o', markersize=obj.markersize)
-                        if(i > orbit_length):
-                            elems += ax.plot(
-                                orbit[i - orbit_length:i, 0] - c_orbit[i - orbit_length:i, 0], orbit[i - orbit_length:i, 1] - c_orbit[i - orbit_length:i, 1],
-                                color='black', linestyle='dashed', linewidth='0.5', markersize=obj.markersize
-                            )
-                        else:
-                            elems += ax.plot(
-                                orbit[:i, 0] - c_orbit[:i, 0], orbit[:i, 1] - c_orbit[:i, 1],
-                                color='black', linestyle='dashed', linewidth='0.5', markersize=obj.markersize
-                            )
+                        elems.append(ax.scatter(orbit[i, 0] - c_orbit[i, 0], orbit[i, 1] - c_orbit[i, 1], c=obj.color, marker='.', s=int(obj.markersize), label=obj.name))
+                        elems += ax.plot(
+                            orbit[max(i - orbit_length, 0):i, 0] - c_orbit[max(i - orbit_length, 0):i, 0], orbit[max(i - orbit_length, 0):i, 1] - c_orbit[max(i - orbit_length, 0):i, 1],
+                            color='black', linestyle='dashed', linewidth='0.5', markersize=obj.markersize
+                        )
+        ax.legend(loc=loc, bbox_to_anchor=bbox_to_anchor, borderaxespad=borderaxespad)
 
 
 class Planet():
-    def __init__(self, mass, color='red', fixed=False, linestyle='solid', linewidth='1', markersize='5'):
+    def __init__(self, mass, color='red', fixed=False, linestyle='solid', linewidth='1', markersize='5', name=None):
         self.mass = mass
         self.color = color
         self.linestyle = linestyle
         self.linewidth = linewidth
         self.markersize = markersize
         self.fixed = fixed
+        self.name = name
         self.x = None
         self.v = None
         self.orbit = []
@@ -223,13 +217,14 @@ class Planet():
 
 
 class Spacecraft:
-    def __init__(self, mass, color='green', linestyle='solid', linewidth='1', markersize='1'):
+    def __init__(self, mass, color='green', linestyle='solid', linewidth='1', markersize='1', name=None):
         self.mass = mass
         self.color = color
         self.linestyle = linestyle
         self.linewidth = linewidth
         self.markersize = markersize
         self.fixed = False
+        self.name = name
         self.x = None
         self.v = None
         self.orbit = []
