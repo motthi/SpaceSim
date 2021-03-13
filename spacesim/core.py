@@ -67,6 +67,8 @@ class Space():
         f = np.zeros(len(v))
         for injection in obj.injection:
             if(self.time >= injection['start'] and self.time <= injection['start'] + injection['last']):
+                if(injection['reference'] is not None):
+                    v = v - injection['reference'].v
                 unitVectorV = v / np.linalg.norm(v) if(np.linalg.norm(v) > 1e-10) else np.array([1.0, 0.0])
                 if(len(v) == 2):
                     R = np.array([[np.cos(injection['theta']), -np.sin(injection['theta'])], [np.sin(injection['theta']), np.cos(injection['theta'])]])
@@ -94,8 +96,8 @@ class Space():
         return f
 
     def plotOrbit(self, center_obj=None, ax_lim=(1e9, 1e9), loc=None, bbox_to_anchor=None, borderaxespad=1):
-        fig = plt.figure()
-        ax = fig.add_subplot(111)
+        self.fig = plt.figure()
+        ax = self.fig.add_subplot(111)
         ax.set_aspect('equal', adjustable='box')
         if(ax_lim is not None):
             ax.set_xlim(-ax_lim[0], ax_lim[0])
@@ -104,9 +106,14 @@ class Space():
             for obj in self.objects:
                 orbit = np.array(obj.orbit)
                 if(obj.fixed is True):
-                    ax.scatter(obj.x[0], obj.x[1], c=obj.color, marker='.', s=int(obj.markersize), label=obj.name)
+                    if(obj.x[0] < ax_lim[0] and obj.x[0] > -ax_lim[0] and obj.x[1] < ax_lim[1] and obj.x[1] > -ax_lim[1]):
+                        ax.scatter(obj.x[0], obj.x[1], c=obj.color, marker='.', s=int(obj.markersize), label=obj.name)
                 else:
-                    ax.plot(orbit[:, 0], orbit[:, 1], color=obj.color, linestyle=obj.linestyle, linewidth=obj.linewidth, label=obj.name)
+                    if(
+                            any(orbit_x < ax_lim[0] and orbit_x > -ax_lim[0] for orbit_x in orbit[:, 0]) and
+                            any(orbit_y < ax_lim[1] and orbit_y > -ax_lim[1] for orbit_y in orbit[:, 1])
+                    ):
+                        ax.plot(orbit[:, 0], orbit[:, 1], color=obj.color, linestyle=obj.linestyle, linewidth=obj.linewidth, label=obj.name)
         else:
             for obj in self.objects:
                 if obj is center_obj:
@@ -114,10 +121,18 @@ class Space():
                 else:
                     c_orbit = np.array(center_obj.orbit)
                     if(obj.fixed is True):
-                        ax.plot(-c_orbit[:, 0], c_orbit[:, 1], color=obj.color, linestyle=obj.linestyle, linewidth=obj.linewidth, label=obj.name)
+                        if(
+                            any(orbit_x < ax_lim[0] and orbit_x > -ax_lim[0] for orbit_x in c_orbit[:, 0]) and
+                            any(orbit_y < ax_lim[1] and orbit_y > -ax_lim[1] for orbit_y in c_orbit[:, 1])
+                        ):
+                            ax.plot(-c_orbit[:, 0], c_orbit[:, 1], color=obj.color, linestyle=obj.linestyle, linewidth=obj.linewidth, label=obj.name)
                     else:
                         orbit = np.array(obj.orbit)
-                        ax.plot(orbit[:, 0] - c_orbit[:, 0], orbit[:, 1] - c_orbit[:, 1], color=obj.color, linestyle=obj.linestyle, linewidth=obj.linewidth, label=obj.name)
+                        if(
+                            any(orbit_x < ax_lim[0] and orbit_x > -ax_lim[0] for orbit_x in orbit[:, 0] - c_orbit[:, 0]) and
+                            any(orbit_y < ax_lim[1] and orbit_y > -ax_lim[1] for orbit_y in orbit[:, 1] - c_orbit[:, 1])
+                        ):
+                            ax.plot(orbit[:, 0] - c_orbit[:, 0], orbit[:, 1] - c_orbit[:, 1], color=obj.color, linestyle=obj.linestyle, linewidth=obj.linewidth, label=obj.name)
         ax.legend(loc=loc, bbox_to_anchor=bbox_to_anchor, borderaxespad=borderaxespad)
         plt.show()
 
@@ -129,13 +144,13 @@ class Space():
         ax.set_ylim(-ax_lim[1], ax_lim[1])
         elems = []
         self.ani = animation.FuncAnimation(
-            fig, self.animateOrbitFrame, fargs=(elems, ax, center_obj, orbit_length, time, loc, bbox_to_anchor, borderaxespad),
+            fig, self.animateOrbitFrame, fargs=(elems, ax, center_obj, orbit_length, time, loc, bbox_to_anchor, borderaxespad, ax_lim),
             interval=interval, frames=frames,
             repeat=False
         )
         plt.show()
 
-    def animateOrbitFrame(self, i, elems, ax, center_obj, orbit_length, time, loc, bbox_to_anchor, borderaxespad):
+    def animateOrbitFrame(self, i, elems, ax, center_obj, orbit_length, time, loc, bbox_to_anchor, borderaxespad, ax_lim):
         while elems:
             elems.pop().remove()
         time_str = i * self.step * self.step_dur
@@ -158,6 +173,8 @@ class Space():
         )
         if(center_obj is None):
             for obj in self.objects:
+                if(obj.x[0] > ax_lim[0] or obj.x[0] < -ax_lim[0] or obj.x[1] > ax_lim[1] or obj.x[1] < -ax_lim[1]):
+                    continue
                 if(obj.fixed is True):
                     elems.append(ax.scatter(obj.x[0], obj.x[1], c=obj.color, marker='.', s=int(obj.markersize), label=obj.name))
                 else:
@@ -174,18 +191,32 @@ class Space():
                 else:
                     c_orbit = np.array(center_obj.orbit)
                     if(obj.fixed is True):
-                        elems.append(ax.scatter(obj.x[0] - c_orbit[i, 0], obj.x[1] - c_orbit[i, 1], c=obj.color, marker='.', s=int(obj.markersize), label=obj.name))
                         elems += ax.plot(
                             obj.x[0] - c_orbit[max(i - orbit_length, 0):i, 0], obj.x[1] - c_orbit[max(i - orbit_length, 0):i, 1],
                             color='black', linestyle='dashed', linewidth='0.5', markersize=obj.markersize
                         )
+                        if(
+                            obj.x[0] - c_orbit[i, 0] > ax_lim[0] or
+                            obj.x[0] - c_orbit[i, 0] < -ax_lim[0] or
+                            obj.x[1] - c_orbit[i, 1] > ax_lim[1] or
+                            obj.x[1] - c_orbit[i, 1] < -ax_lim[1]
+                        ):
+                            continue
+                        elems.append(ax.scatter(obj.x[0] - c_orbit[i, 0], obj.x[1] - c_orbit[i, 1], c=obj.color, marker='.', s=int(obj.markersize), label=obj.name))
                     else:
                         orbit = np.array(obj.orbit)
-                        elems.append(ax.scatter(orbit[i, 0] - c_orbit[i, 0], orbit[i, 1] - c_orbit[i, 1], c=obj.color, marker='.', s=int(obj.markersize), label=obj.name))
                         elems += ax.plot(
                             orbit[max(i - orbit_length, 0):i, 0] - c_orbit[max(i - orbit_length, 0):i, 0], orbit[max(i - orbit_length, 0):i, 1] - c_orbit[max(i - orbit_length, 0):i, 1],
                             color='black', linestyle='dashed', linewidth='0.5', markersize=obj.markersize
                         )
+                        if(
+                            orbit[i, 0] - c_orbit[i, 0] > ax_lim[0] or
+                            orbit[i, 0] - c_orbit[i, 0] < -ax_lim[0] or
+                            orbit[i, 1] - c_orbit[i, 1] > ax_lim[1] or
+                            orbit[i, 1] - c_orbit[i, 1] < -ax_lim[1]
+                        ):
+                            continue
+                        elems.append(ax.scatter(orbit[i, 0] - c_orbit[i, 0], orbit[i, 1] - c_orbit[i, 1], c=obj.color, marker='.', s=int(obj.markersize), label=obj.name))
         ax.legend(loc=loc, bbox_to_anchor=bbox_to_anchor, borderaxespad=borderaxespad)
 
 
@@ -238,8 +269,8 @@ class Spacecraft:
     def initial_vel(self, vel):
         self.v = vel
 
-    def appendInjection(self, start, last, force, theta, phi=0.0):
-        dic = {'start': start, 'last': last, 'force': force, 'theta': theta, 'phi': phi}
+    def appendInjection(self, start, last, force, theta, phi=0.0, reference=None):
+        dic = {'start': start, 'last': last, 'force': force, 'theta': theta, 'phi': phi, 'reference': reference}
         self.injection.append(dic)
 
     def resetInjection(self):
